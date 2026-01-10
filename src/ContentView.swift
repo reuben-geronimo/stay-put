@@ -17,9 +17,6 @@ struct ContentView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text("Top padding: \(Int(AppState.defaultTopPadding)) px.")
-                .foregroundStyle(.secondary)
-
             if let status = appState.statusMessage, !status.isEmpty {
                 Text(status)
                     .foregroundStyle(.red)
