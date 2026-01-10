@@ -1,33 +1,47 @@
 import SwiftUI
+import AppKit
 
 struct ContentView: View {
-    @StateObject var appState: AppState
+    @ObservedObject var appState: AppState
 
     var body: some View {
-        VStack(alignment: .leading) {
-            Text("Resolution").font(.title2).padding(.bottom, 3)
-            HStack() {
-                VStack(alignment: .leading) {
-                    Text("Width").padding(.bottom, -4)
-                    TextField("Width", text: $appState.width)
-                }
-                VStack(alignment: .leading) {
-                    Text("Height").padding(.bottom, -4)
-                    TextField("Height", text: $appState.height)
-                }
-            }.padding(.bottom)
-            Text("Activate").font(.title2).padding(.bottom, 3)
-            VStack(alignment: .leading) {
-                Text("Activate only when one of these apps are in focus or always.").fixedSize(horizontal: false, vertical: true)
-                ForEach(self.appState.games.sorted(by: {$0.value < $1.value}), id: \.key) { key, value in
-                    let name = value.components(separatedBy: "/")[1];
-                    Toggle(name, isOn: Binding(
-                        get: {self.appState.activegames[key] ?? false},
-                        set: {value in self.appState.activegames[key] = value}
-                    )).disabled(self.appState.active)
-                }
-                Toggle("Always", isOn: $appState.active)
+        VStack(alignment: .leading, spacing: 14) {
+            Text("StayPut").font(.title2)
+
+            Toggle("Enable cursor confinement", isOn: Binding(
+                get: { appState.isEnabled },
+                set: { appState.setEnabled($0) }
+            ))
+
+            Text("Mode: Menu Bar Guard (current screen).")
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text("Top padding: \(Int(AppState.defaultTopPadding)) px.")
+                .foregroundStyle(.secondary)
+
+            if let status = appState.statusMessage, !status.isEmpty {
+                Text(status)
+                    .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Text("If enabling fails, grant both Accessibility and Input Monitoring in System Settings → Privacy & Security, then try again.")
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-        }.padding(30).padding(.top, -5).frame(width: 340)
+
+            HStack(spacing: 12) {
+                Button("Open Input Monitoring Settings") {
+                    NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")!)
+                }
+                Button("Open Accessibility Settings") {
+                    NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
+                }
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(24)
+        .frame(width: 420, height: 250)
     }
 }
