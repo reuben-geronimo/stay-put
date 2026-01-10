@@ -1,7 +1,7 @@
 <h1 align="center">
   <img src="src/Media.xcassets/AppIcon.appiconset/icon.png" width="110"/>
   <br>
-  Mouselock
+  StayPut
 </h1>
 
 <p align="center">

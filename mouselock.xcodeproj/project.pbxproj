@@ -7,15 +7,15 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		0E577D8927BD9D5F002B61CC /* mouselockApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E577D8827BD9D5F002B61CC /* mouselockApp.swift */; };
+		0E577D8927BD9D5F002B61CC /* StayPutApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E577D8827BD9D5F002B61CC /* StayPutApp.swift */; };
 		0E577D8B27BD9D5F002B61CC /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E577D8A27BD9D5F002B61CC /* ContentView.swift */; };
 		0E8210F227CD81D000DB2E0B /* CGKeyCodeInitializers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E8210F127CD81D000DB2E0B /* CGKeyCodeInitializers.swift */; };
 		0E96FDD12917F00500D67A09 /* Media.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0E96FDD02917F00500D67A09 /* Media.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		0E577D8527BD9D5F002B61CC /* Mouselock.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Mouselock.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		0E577D8827BD9D5F002B61CC /* mouselockApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = mouselockApp.swift; sourceTree = "<group>"; };
+		0E577D8527BD9D5F002B61CC /* StayPut.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = StayPut.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		0E577D8827BD9D5F002B61CC /* StayPutApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StayPutApp.swift; sourceTree = "<group>"; };
 		0E577D8A27BD9D5F002B61CC /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		0E8210F127CD81D000DB2E0B /* CGKeyCodeInitializers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CGKeyCodeInitializers.swift; sourceTree = "<group>"; };
 		0E96FDD02917F00500D67A09 /* Media.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Media.xcassets; sourceTree = "<group>"; };
@@ -43,7 +43,7 @@
 		0E577D8627BD9D5F002B61CC /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				0E577D8527BD9D5F002B61CC /* Mouselock.app */,
+				0E577D8527BD9D5F002B61CC /* StayPut.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -51,7 +51,7 @@
 		0E577D8727BD9D5F002B61CC /* src */ = {
 			isa = PBXGroup;
 			children = (
-				0E577D8827BD9D5F002B61CC /* mouselockApp.swift */,
+				0E577D8827BD9D5F002B61CC /* StayPutApp.swift */,
 				0E577D8A27BD9D5F002B61CC /* ContentView.swift */,
 				0E8210F127CD81D000DB2E0B /* CGKeyCodeInitializers.swift */,
 				0E96FDD02917F00500D67A09 /* Media.xcassets */,
@@ -76,7 +76,7 @@
 			);
 			name = Mouselock;
 			productName = mouselock;
-			productReference = 0E577D8527BD9D5F002B61CC /* Mouselock.app */;
+			productReference = 0E577D8527BD9D5F002B61CC /* StayPut.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -131,7 +131,7 @@
 			files = (
 				0E577D8B27BD9D5F002B61CC /* ContentView.swift in Sources */,
 				0E8210F227CD81D000DB2E0B /* CGKeyCodeInitializers.swift in Sources */,
-				0E577D8927BD9D5F002B61CC /* mouselockApp.swift in Sources */,
+				0E577D8927BD9D5F002B61CC /* StayPutApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -271,13 +271,14 @@
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = StayPut;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = mxrlkn.mouselock;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.reu.stayput;
+				PRODUCT_NAME = StayPut;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "";
@@ -302,13 +303,14 @@
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = StayPut;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = mxrlkn.mouselock;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.reu.stayput;
+				PRODUCT_NAME = StayPut;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "";
