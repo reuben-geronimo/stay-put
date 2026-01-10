@@ -8,13 +8,13 @@ VERSION=$(git describe HEAD)
 agvtool new-version ${VERSION:1}
 
 # build
-xcodebuild -quiet -configuration Release -target Mouselock
+xcodebuild -quiet -project StayPut.xcodeproj -configuration Release -target StayPut
 
 # clean dist
 rm -rf dist && mkdir dist
 
 # make dmg from app
-hdiutil create -fs HFS+ -srcfolder build/Release/Mouselock.app -volname Mouselock dist/Mouselock.dmg
+hdiutil create -fs HFS+ -srcfolder build/Release/StayPut.app -volname StayPut dist/StayPut.dmg
 
 # clean build
 rm -r build

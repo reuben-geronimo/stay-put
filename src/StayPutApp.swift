@@ -1,7 +1,6 @@
 import SwiftUI
 import AppKit
 import ApplicationServices
-import IOKit.hid
 
 @main
 struct StayPutApp: App {
@@ -54,7 +53,7 @@ private enum MouseLockError: LocalizedError {
         case .accessibilityPermissionDenied:
             return "Missing permissions. Enable both Accessibility and Input Monitoring in System Settings → Privacy & Security, then try again."
         case .inputMonitoringPermissionDenied:
-            return "Missing Input Monitoring permission. Enable it in System Settings → Privacy & Security → Input Monitoring, then quit and relaunch StayPut."
+            return "Missing Input Monitoring permission. Enable it in System Settings → Privacy & Security → Input Monitoring, then quit and relaunch StayPut. If StayPut doesn’t appear in the list, quit System Settings and toggle again."
         case .eventTapCreationFailed:
             return "Could not create the event tap. This usually means Accessibility and/or Input Monitoring permissions are missing."
         }
@@ -74,15 +73,15 @@ private struct PermissionService {
 }
 
 private struct InputMonitoringPermissionService {
-    /// Checks whether we can listen to HID events (Input Monitoring / “ListenEvent” TCC gate).
+    /// Checks whether we have Input Monitoring (“Listen Event”) access.
     static func hasListenEventAccess() -> Bool {
-        IOHIDCheckAccess(kIOHIDRequestTypeListenEvent) == kIOHIDAccessTypeGranted
+        CGPreflightListenEventAccess()
     }
 
-    /// Requests permission (may trigger the system prompt / register the app under Input Monitoring).
-    @discardableResult
-    static func requestListenEventAccess() -> Bool {
-        IOHIDRequestAccess(kIOHIDRequestTypeListenEvent)
+    /// Triggers the system prompt / registers the app under Input Monitoring.
+    /// Note: user approval may not take effect until the app is relaunched.
+    static func requestListenEventAccess() {
+        CGRequestListenEventAccess()
     }
 }
 
@@ -140,6 +139,7 @@ private final class MouseLockService {
 
         if !InputMonitoringPermissionService.hasListenEventAccess() {
             InputMonitoringPermissionService.requestListenEventAccess()
+            // The decision often applies only after relaunch; fail fast with a clear message.
             throw MouseLockError.inputMonitoringPermissionDenied
         }
 
