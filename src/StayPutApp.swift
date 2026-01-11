@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import ApplicationServices
+import Carbon.HIToolbox
 import IOKit.hid
 
 @main
@@ -19,12 +20,38 @@ final class AppState: ObservableObject {
     @Published var isEnabled: Bool = false
     @Published var statusMessage: String? = nil
 
-    private let mouseLockService = MouseLockService()
+    private let mouseLockService: MouseLockService
+
+    init() {
+        // Best-effort safety: ensure mouse/cursor are coupled on launch.
+        CGAssociateMouseAndMouseCursorPosition(1)
+
+        let service = MouseLockService()
+        self.mouseLockService = service
+
+        service.onDisableRequested = { [weak self] reason in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.isEnabled = false
+                self.statusMessage = reason
+            }
+        }
+
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.willTerminateNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            service.stop()
+        }
+    }
 
     func setEnabled(_ enabled: Bool) {
         statusMessage = nil
 
         if enabled {
+            if isEnabled { return }
+
             // Preflight permissions before attempting to start.
             switch PermissionPreflight.accessibility() {
             case .granted:
@@ -57,6 +84,7 @@ final class AppState: ObservableObject {
                 statusMessage = error.localizedDescription
             }
         } else {
+            if !isEnabled { return }
             mouseLockService.stop()
             isEnabled = false
         }
@@ -235,23 +263,43 @@ private struct ScreenBoundsService {
     }
 }
 
-private final class MouseLockService {
+// This type is used across a run-loop thread boundary via callbacks/timers.
+// We manage access carefully and treat it as safe for sendable closures.
+private final class MouseLockService: @unchecked Sendable {
+    /// Called when the service disables itself (panic/safety).
+    /// Set by `AppState` to update UI state.
+    var onDisableRequested: ((String) -> Void)?
+
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
-    private var failsafeTimer: CFRunLoopTimer?
     private var runLoop: CFRunLoop?
     private var thread: Thread?
+
+    private var isDisabling: Bool = false
 
     // Recursion guard for self-generated warp events.
     private let warpGuardLock = NSLock()
     private var lastWarpTimestampSeconds: Double = 0
     private var lastWarpPoint: CGPoint = .zero
 
-    private let warpGuardWindowSeconds: Double = 0.008
-    private let warpGuardDistance: CGFloat = 0.75
+    // Warping generates synthetic mouse-move events; ignore those to prevent feedback/jitter.
+    private let warpGuardWindowSeconds: Double = 0.03
+    private let warpGuardDistance: CGFloat = 2.0
+
+    // Treat the max-X edge as inclusive to avoid fighting the native right screen edge.
+    // For Y we keep a small inset so we don't allow entry into the forbidden top region.
+    // Using a whole pixel avoids subpixel rounding jitter near the top boundary.
+    private static let maxEdgeInset: CGFloat = 1.0
+
+    private static func inBoundsInclusiveMax(_ point: CGPoint, _ bounds: CGRect) -> Bool {
+        let maxX = bounds.maxX
+        let maxY = bounds.maxY - maxEdgeInset
+        return point.x >= bounds.minX && point.x <= maxX && point.y >= bounds.minY && point.y <= maxY
+    }
 
     func start() throws {
         if isRunning { return }
+        isDisabling = false
 
         guard PermissionService.ensureAccessibilityPermission(prompt: false) else {
             throw MouseLockError.accessibilityPermissionDenied
@@ -290,11 +338,8 @@ private final class MouseLockService {
         }
         eventTap = nil
 
-        if let timer = failsafeTimer {
-            CFRunLoopTimerInvalidate(timer)
-        }
-        failsafeTimer = nil
         runLoopSource = nil
+        isDisabling = false
 
         if let runLoop {
             CFRunLoopStop(runLoop)
@@ -308,11 +353,13 @@ private final class MouseLockService {
     }
 
     private func installEventTap() -> Error? {
+        // Listen for mouse movement and a single panic hotkey.
         let eventsOfInterest: CGEventMask =
             (1 << CGEventType.mouseMoved.rawValue) |
             (1 << CGEventType.leftMouseDragged.rawValue) |
             (1 << CGEventType.rightMouseDragged.rawValue) |
-            (1 << CGEventType.otherMouseDragged.rawValue)
+            (1 << CGEventType.otherMouseDragged.rawValue) |
+            (1 << CGEventType.keyDown.rawValue)
 
         let refcon = Unmanaged.passUnretained(self).toOpaque()
         guard let tap = CGEvent.tapCreate(
@@ -336,45 +383,7 @@ private final class MouseLockService {
         self.runLoopSource = source
         self.runLoop = rl
 
-        // Failsafe: if the cursor ever ends up outside bounds (e.g. due to missed events
-        // or fast movement), periodically warp it back in.
-        installFailsafeTimer(on: rl)
-
         return nil
-    }
-
-    private func installFailsafeTimer(on runLoop: CFRunLoop) {
-        guard failsafeTimer == nil else { return }
-
-        let interval: CFTimeInterval = 1.0 / 30.0
-        let start = CFAbsoluteTimeGetCurrent() + interval
-        let timer = CFRunLoopTimerCreateWithHandler(kCFAllocatorDefault, start, interval, 0, 0) { [weak self] _ in
-            self?.failsafeEnforceBoundsIfNeeded()
-        }
-        CFRunLoopAddTimer(runLoop, timer, .commonModes)
-        self.failsafeTimer = timer
-    }
-
-    private func failsafeEnforceBoundsIfNeeded() {
-        // Only enforce while running.
-        guard eventTap != nil else { return }
-        guard let event = CGEvent(source: nil) else { return }
-
-        let locQuartz = event.location
-        let locAppKit = CoordinateSpace.quartzToAppKit(locQuartz)
-        guard let boundsAppKit = ScreenBoundsService.menuBarGuardBounds(for: locAppKit) else { return }
-        guard boundsAppKit.width >= 2, boundsAppKit.height >= 2 else { return }
-
-        let clampedAppKit = CGPoint(
-            x: clamp(locAppKit.x, min: boundsAppKit.minX, max: boundsAppKit.maxX - 1),
-            y: clamp(locAppKit.y, min: boundsAppKit.minY, max: boundsAppKit.maxY - 1)
-        )
-
-        if clampedAppKit.x != locAppKit.x || clampedAppKit.y != locAppKit.y {
-            let clampedQuartz = CoordinateSpace.appKitToQuartz(clampedAppKit)
-            recordWarp(to: clampedQuartz, event: event)
-            CGWarpMouseCursorPosition(clampedQuartz)
-        }
     }
 
     private func shouldIgnoreWarpEvent(_ event: CGEvent) -> Bool {
@@ -387,9 +396,9 @@ private final class MouseLockService {
         let withinTime = (nowSeconds - lastWarpTimestampSeconds) >= 0 && (nowSeconds - lastWarpTimestampSeconds) < warpGuardWindowSeconds
         guard withinTime else { return false }
 
-        let dx = loc.x - lastWarpPoint.x
-        let dy = loc.y - lastWarpPoint.y
-        return (dx * dx + dy * dy) <= (warpGuardDistance * warpGuardDistance)
+        let warpDx = loc.x - lastWarpPoint.x
+        let warpDy = loc.y - lastWarpPoint.y
+        return (warpDx * warpDx + warpDy * warpDy) <= (warpGuardDistance * warpGuardDistance)
     }
 
     private func recordWarp(to point: CGPoint, event: CGEvent) {
@@ -400,14 +409,31 @@ private final class MouseLockService {
         warpGuardLock.unlock()
     }
 
+    private func emergencyDisable(reason: String) {
+        // Avoid re-entrancy from multiple triggers (tap disabled + watchdog + hotkey).
+        if isDisabling { return }
+        isDisabling = true
+
+        // Stop the tap/run loop.
+        stop()
+
+        // Notify UI.
+        onDisableRequested?(reason)
+    }
+
     private static let eventTapCallback: CGEventTapCallBack = { _, type, event, userInfo in
         guard let userInfo else { return Unmanaged.passUnretained(event) }
         let service = Unmanaged<MouseLockService>.fromOpaque(userInfo).takeUnretainedValue()
 
         switch type {
         case .tapDisabledByTimeout, .tapDisabledByUserInput:
-            if let tap = service.eventTap {
-                CGEvent.tapEnable(tap: tap, enable: true)
+            service.emergencyDisable(reason: "Safety recouple: event tap was disabled by the system.")
+            return Unmanaged.passUnretained(event)
+        case .keyDown:
+            // Panic hotkey: Cmd+Esc disables confinement and re-couples.
+            let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+            if keyCode == Int64(kVK_Escape) && event.flags.contains(.maskCommand) {
+                service.emergencyDisable(reason: "Disabled (panic hotkey: Cmd+Esc).")
             }
             return Unmanaged.passUnretained(event)
         default:
@@ -419,26 +445,23 @@ private final class MouseLockService {
             return Unmanaged.passUnretained(event)
         }
 
-        let locQuartz = event.location
-        let locAppKit = CoordinateSpace.quartzToAppKit(locQuartz)
-
-        guard let boundsAppKit = ScreenBoundsService.menuBarGuardBounds(for: locAppKit) else {
+        let locAppKit = CoordinateSpace.quartzToAppKit(event.location)
+        guard let bounds = ScreenBoundsService.menuBarGuardBounds(for: locAppKit) else {
             return Unmanaged.passUnretained(event)
         }
-        guard boundsAppKit.width >= 2, boundsAppKit.height >= 2 else {
-            return Unmanaged.passUnretained(event)
-        }
+        let maxX = bounds.maxX
+        let maxY = bounds.maxY - MouseLockService.maxEdgeInset
 
-        let clampedAppKit = CGPoint(
-            x: clamp(locAppKit.x, min: boundsAppKit.minX, max: boundsAppKit.maxX - 1),
-            y: clamp(locAppKit.y, min: boundsAppKit.minY, max: boundsAppKit.maxY - 1)
-        )
-
-        if clampedAppKit.x != locAppKit.x || clampedAppKit.y != locAppKit.y {
-            let clampedQuartz = CoordinateSpace.appKitToQuartz(clampedAppKit)
-            service.recordWarp(to: clampedQuartz, event: event)
-            CGWarpMouseCursorPosition(clampedQuartz)
-            event.location = clampedQuartz
+        // Only restrict the top edge (menu bar/notch region). Leave bottom/dock behavior native.
+        if locAppKit.y > maxY {
+            let clamped = CGPoint(
+                x: clamp(locAppKit.x, min: bounds.minX, max: maxX),
+                y: maxY
+            )
+            let targetQuartz = CoordinateSpace.appKitToQuartz(clamped)
+            service.recordWarp(to: targetQuartz, event: event)
+            CGWarpMouseCursorPosition(targetQuartz)
+            event.location = targetQuartz
         }
 
         return Unmanaged.passUnretained(event)

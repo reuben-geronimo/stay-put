@@ -17,6 +17,9 @@ struct ContentView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
+            Text("Panic hotkey: Cmd+Esc (disables confinement).")
+                .foregroundStyle(.secondary)
+
             if let status = appState.statusMessage, !status.isEmpty {
                 Text(status)
                     .foregroundStyle(.red)
@@ -39,6 +42,6 @@ struct ContentView: View {
             Spacer(minLength: 0)
         }
         .padding(24)
-        .frame(width: 420, height: 250)
+        .frame(width: 420, height: 270)
     }
 }
